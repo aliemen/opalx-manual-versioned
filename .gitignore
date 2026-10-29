@@ -30,3 +30,6 @@
 
 # Generated from Git history before each render.
 /includes/_latest-changes.md
+
+# Release builds downloaded for local site assembly.
+/_releases/

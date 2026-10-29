@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+    # A release tag freezes its manual as a GitHub release archive; see the release job.
+    tags: ["OPALX-*"]
   workflow_dispatch:
 
 permissions:
@@ -40,6 +42,9 @@ jobs:
 
       - name: Test latest-changes generator
         run: ruby tests/test_latest_changes.rb
+
+      - name: Test release-site assembly
+        run: ruby tests/test_assemble_release_sites.rb
 
       - name: Validate manual source
         run: ruby scripts/validate_manual.rb
@@ -107,14 +112,76 @@ jobs:
           path: _site
           if-no-files-found: error
 
+      - name: Package release manual
+        if: startsWith(github.ref, 'refs/tags/OPALX-')
+        run: tar -czf opalx-manual-site.tar.gz -C _site .
+
+      - name: Upload release manual
+        if: startsWith(github.ref, 'refs/tags/OPALX-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: opalx-manual-release
+          path: opalx-manual-site.tar.gz
+          if-no-files-found: error
+
+      # Released manuals are never rebuilt: their archives are unpacked beside
+      # the development build on every deployment.
+      - name: Add released manuals
+        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 \
+            --json tagName,isDraft --jq '.[] | select(.isDraft | not) | .tagName' |
+          while read -r tag; do
+            case "$tag" in OPALX-*) ;; *) continue ;; esac
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+              --pattern opalx-manual-site.tar.gz --dir "_releases/$tag" ||
+              echo "::warning::Release $tag has no opalx-manual-site.tar.gz"
+          done
+          ruby scripts/assemble_release_sites.rb _site _releases
+
       - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
+  release:
+    if: startsWith(github.ref, 'refs/tags/OPALX-')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Download release manual
+        uses: actions/download-artifact@v4
+        with:
+          name: opalx-manual-release
+
+      - name: Attach manual to the GitHub release
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" opalx-manual-site.tar.gz --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" opalx-manual-site.tar.gz --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --title "Manual for $TAG" \
+              --notes "Rendered HTML manual for $TAG, published under its release series."
+          fi
+
+      # Releases created with GITHUB_TOKEN do not trigger workflows, but a
+      # dispatch does: rebuild the development site, which adds this archive.
+      - name: Redeploy the published site
+        run: |
+          gh workflow run build.yml --repo "$GITHUB_REPOSITORY" \
+            --ref "${{ github.event.repository.default_branch }}"
+
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     environment:

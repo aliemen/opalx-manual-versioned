@@ -29,6 +29,7 @@ errors << "sidebar persistence does not wait for Quarto initialization" unless c
 errors << "render does not contain documentation-version persistence" unless combined_html.include?("opalx-documentation-version-v1")
 errors << "render does not contain the accessible documentation-version selector" unless combined_html.include?("Select documentation version")
 errors << "render does not contain direct-anchor version handling" unless combined_html.include?("revealHashTarget")
+errors << "render does not contain the manual release selector" unless combined_html.include?("opalx-release-select")
 errors << "render does not contain the distribution sidebar manifest" unless combined_html.include?("page-toc:beam-distributions")
 errors << "render still contains the removed Structures sidebar manifest" if combined_html.include?("page-toc:structures")
 errors << "render does not contain the field-solver sidebar manifest" unless combined_html.include?("page-toc:field-solver")

@@ -1,0 +1,123 @@
+<script>
+(() => {
+  // Each published manual directory holds a versions.json written at deploy
+  // time by scripts/assemble_release_sites.rb. A frozen release build reads it
+  // at runtime and so learns about releases made after it. Without the file,
+  // as in a local preview, the page shows no selector and no banner.
+  const offset = document.querySelector('meta[name="quarto:offset"]')?.content;
+  if (offset === undefined || !/^https?:$/.test(window.location.protocol)) return;
+
+  const versionRoot = new URL(offset, window.location.href);
+
+  const pagePath = () => {
+    const path = window.location.pathname;
+    return path.startsWith(versionRoot.pathname) ? path.slice(versionRoot.pathname.length) : "";
+  };
+
+  const setup = (manifest) => {
+    const versions = Array.isArray(manifest?.versions) ? manifest.versions : [];
+    const current = versions.find((version) => version.id === manifest.current);
+    if (!current || versions.length < 2) return;
+
+    // The current entry's path is this build's location below the site root.
+    const depth = current.path.split("/").filter(Boolean).length;
+    const siteRoot = new URL("../".repeat(depth), versionRoot);
+    const indexOf = (version) => new URL(version.path, siteRoot);
+    const samePageIn = (version) => {
+      const target = new URL(version.path + pagePath(), siteRoot);
+      target.hash = window.location.hash;
+      return target;
+    };
+
+    // A page may not exist in another release; fall back to that release's start page.
+    const open = async (version) => {
+      const target = samePageIn(version);
+      try {
+        const response = await fetch(target, { method: "HEAD", cache: "no-store" });
+        window.location.assign(response.ok ? target : indexOf(version));
+      } catch (_) {
+        window.location.assign(target);
+      }
+    };
+
+    const linkTo = (version, text = version.label) => {
+      const link = document.createElement("a");
+      link.href = samePageIn(version).href;
+      link.textContent = text;
+      link.addEventListener("click", (event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        open(version);
+      });
+      return link;
+    };
+
+    document.documentElement.dataset.opalxManualRelease = current.id;
+
+    const selector = document.createElement("div");
+    selector.className = "opalx-release-selector";
+    const label = document.createElement("label");
+    label.htmlFor = "opalx-release-select";
+    label.textContent = "Manual release";
+    const select = document.createElement("select");
+    select.id = "opalx-release-select";
+    select.className = "form-select form-select-sm";
+    versions.forEach((version) => {
+      const option = document.createElement("option");
+      option.value = version.id;
+      option.textContent = version.label;
+      option.selected = version.id === current.id;
+      select.append(option);
+    });
+    select.addEventListener("change", () => {
+      const version = versions.find((candidate) => candidate.id === select.value);
+      if (version) open(version);
+    });
+    selector.append(label, select);
+
+    const sidebarHeader = document.querySelector("#quarto-sidebar .sidebar-header");
+    const content = document.querySelector("main.content, #quarto-document-content");
+    if (sidebarHeader) {
+      sidebarHeader.append(selector);
+    } else if (content) {
+      content.prepend(selector);
+    }
+
+    const development = versions.find((version) => version.path === "");
+    const latest = versions.find((version) => version.id === manifest.latest);
+    const banner = document.createElement("aside");
+    banner.className = "opalx-release-banner";
+    banner.setAttribute("aria-label", "Release notice");
+    if (current === development) {
+      if (!latest) return;
+      banner.append("This is the development manual for the OPALX main branch. For the latest release, see ",
+        linkTo(latest), ".");
+    } else {
+      banner.classList.add("opalx-release-banner--frozen");
+      banner.append(`This is the manual for ${current.label}. `);
+      if (latest && latest !== current) {
+        banner.append("The latest release is ", linkTo(latest), ". ");
+      }
+      if (development) {
+        banner.append("The ", linkTo(development, "development manual"), " describes the main branch.");
+      }
+    }
+    content?.prepend(banner);
+  };
+
+  const load = () => {
+    fetch(new URL("versions.json", versionRoot), { cache: "no-cache" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((manifest) => manifest && setup(manifest))
+      .catch(() => {
+        // The manual stays usable without release navigation.
+      });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", load, { once: true });
+  } else {
+    load();
+  }
+})();
+</script>

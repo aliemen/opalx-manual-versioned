@@ -303,6 +303,34 @@ body.opalx-sidebar-page-toc #quarto-margin-sidebar {
   outline-offset: -3px;
 }
 
+.opalx-release-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.6rem 0 0.2rem;
+}
+
+.opalx-release-selector label {
+  color: var(--opalx-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.opalx-release-banner {
+  margin: 0 0 1.2rem;
+  padding: 0.55rem 0.9rem;
+  border-left: 0.3rem solid var(--opalx-teal);
+  border-radius: 0.35rem;
+  color: var(--opalx-ink);
+  background: var(--opalx-mist);
+  font-size: 0.9rem;
+}
+
+.opalx-release-banner--frozen {
+  border-left-color: var(--opalx-blue);
+  background: var(--opalx-resource);
+}
+
 .feature-opal,
 .feature-opalx {
   position: relative;

@@ -3,7 +3,7 @@ title: "Documentation Workflow"
 description: "Maintain the text-first Quarto manual and its separately hosted supporting documents."
 audience: developer
 status: current
-last-reviewed: "2026-07-23"
+last-reviewed: "2026-10-29"
 ---
 
 Every substantive page declares `title`, `description`, `audience`, `status`,
@@ -21,6 +21,26 @@ The `opalx` profile targets the production `OPALX-project/opalx-manual` and
 `_quarto.yml.local.example` to
 `_quarto.yml.local` and set its `documents-base-url`. The local file is ignored
 by Git.
+
+## Release manuals
+
+The site root always shows the development manual built from `main`. Each OPALX
+release series is published beside it in `<major>.<minor>/`, for example `1.0/`,
+and a *Manual release* selector in the sidebar switches between them on the
+same page.
+
+Pushing a tag `OPALX-<major>.<minor>.<patch>` renders that commit, attaches the
+HTML site as `opalx-manual-site.tar.gz` to the GitHub release of the tag, and
+redeploys `main`. Every deployment unpacks these archives with
+`scripts/assemble_release_sites.rb`; release manuals are never rebuilt. The
+highest patch tag of a series replaces its directory. The script also writes a
+`versions.json` into every manual directory, which the selector reads at
+runtime, so an older release learns about newer ones.
+
+A tag runs the workflow stored at the tagged commit. Before tagging, the commit
+should pin links that would otherwise follow `main`: set `documents-base-url`
+to the matching `opalx-documents` tag and limit `book.repo-actions` to
+`[issue]`. Local previews have no `versions.json` and show no selector.
 
 ## PDF publication (paused)
 

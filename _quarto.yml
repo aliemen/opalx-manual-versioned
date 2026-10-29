@@ -123,6 +123,7 @@ format:
       - assets/scripts/sidebar-page-toc.html
       - assets/scripts/persist-sidebar-state.html
       - assets/scripts/version-selector.html
+      - assets/scripts/release-selector.html
   pdf:
     documentclass: scrreprt
     papersize: a4
